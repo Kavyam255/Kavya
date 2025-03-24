@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with PDF</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            width: 50%;
+            margin: 0 auto;
+            padding-top: 50px;
+            text-align: center;
+        }
+        input[type="file"] {
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 20px;
+            resize: none;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .response {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        #loading {
+            display: none;
+            color: blue;
+            font-style: italic;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Chat with PDF</h2>
+
+        <form id="upload-form" enctype="multipart/form-data">
+            <label for="pdf">Upload your PDF:</label>
+            <input type="file" id="pdf" name="pdf" accept=".pdf" required>
+            <button type="submit">Upload PDF</button>
+            <p id="file-name"></p>
+            <p id="loading">Processing...</p>
+        </form>
+
+        <div id="pdf-info"></div>
+
+        <h3>Ask a Question:</h3>
+        <textarea id="question" placeholder="Enter your question here"></textarea>
+        <button id="ask-button" disabled>Ask Question</button>
+
+        <div class="response" id="response"></div>
+    </div>
+
+    <script>
+        document.getElementById('upload-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            let fileInput = document.getElementById('pdf');
+            if (!fileInput.files.length) {
+                alert("Please select a PDF file.");
+                return;
+            }
+
+            let formData = new FormData();
+            formData.append('pdf', fileInput.files[0]);
+
+            document.getElementById('loading').style.display = "block";
+            document.getElementById('file-name').innerText = `Uploading: ${fileInput.files[0].name}`;
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loading').style.display = "none";
+                if (data.message) {
+                    document.getElementById('pdf-info').innerText = data.message;
+                    window.pdfText = data.pdf_text;
+                    document.getElementById('ask-button').disabled = false;
+                } else {
+                    alert(data.error);
+                }
+            })
+            .catch(error => {
+                document.getElementById('loading').style.display = "none";
+                alert("Error uploading PDF. Please try again.");
+                console.error("Upload Error:", error);
+            });
+        });
+
+        document.getElementById('ask-button').addEventListener('click', function() {
+            let question = document.getElementById('question').value;
+            if (!question.trim()) {
+                alert("Please enter a question.");
+                return;
+            }
+
+            document.getElementById('response').innerText = "Processing...";
+            document.getElementById('ask-button').disabled = true;
+
+            fetch('/ask', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: question, pdf_text: window.pdfText })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('ask-button').disabled = false;
+                if (data.answer) {
+                    document.getElementById('response').innerText = data.answer;
+                } else {
+                    alert(data.error);
+                }
+            })
+            .catch(error => {
+                document.getElementById('ask-button').disabled = false;
+                alert("Error processing your question. Please try again.");
+                console.error("Question Error:", error);
+            });
+        });
+    </script>
+</body>
+</html>
